@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lemper Uploader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f8f8f8;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .warning {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .warning-icon {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        .drop-zone {
+            background-color: #faf5ff;
+            border-radius: 24px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .drop-zone.drag-over {
+            background-color: #f3e8ff;
+        }
+
+        .upload-icon {
+            font-size: 32px;
+            margin-bottom: 16px;
+        }
+
+        .url-container {
+            background-color: #faf5ff;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+
+        .copy-text {
+            margin-top: -20px;
+            text-align: center;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #progressContainer {
+            margin-top: 10px;
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #progressBar {
+            height: 20px;
+            background-color: #4CAF50;
+            width: 0%;
+            border-radius: 5px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                gap: 16px;
+            }
+
+            .warning {
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+
+            .drop-zone {
+                padding: 40px 16px;
+            }
+
+            .url-container {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+    
+        <div class="warning">
+            <span class="warning-icon">!</span>
+            Upload Maximum file is 200 Mb
+        </div>
+        
+        <div class="drop-zone" id="dropZone">
+            <div class="upload-icon"><i class="fa-solid fa-upload"></i></div>
+            <div>Drop your file Here</div>
+        </div>
+
+        <div class="url-container hidden" id="urlContainer">
+            <i class="fa-solid fa-clipboard"></i> <span id="urlText">https://upload.aisbir.cloud</span>
+        </div>
+        <div class="copy-text hidden" id="copyText">Click to copy</div>
+        <div class="hidden" id="progressContainer">
+            <div id="progressBar"></div>
+            <div id="progressText">0%</div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const urlContainer = document.getElementById('urlContainer');
+        const urlText = document.getElementById('urlText');
+        const copyText = document.getElementById('copyText');
+        const url = 'https://upload.aisbir.cloud';
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        dropZone.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.onchange = (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            };
+            input.click();
+        });
+
+        
+        urlContainer.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(urlText.textContent);
+                const originalText = urlText.textContent;
+                urlText.textContent = 'Copied!';
+                setTimeout(() => {
+                    urlText.textContent = originalText;
+                }, 1500);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+            }
+        });
+
+        async function handleFile(file) {
+          if (file.size > 200 * 1024 * 1024) {
+            alert('File size exceeds 200MB limit');
+            return;
+          }
+
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const progressContainer = document.getElementById('progressContainer');
+          const progressBar = document.getElementById('progressBar');
+          const progressText = document.getElementById('progressText');
+
+          progressContainer.classList.remove('hidden');
+          progressBar.style.width = '0%';
+          progressText.textContent = '0%';
+
+          try {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload', true);
+
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable) {
+                const percentComplete = (event.loaded / event.total) * 100;
+                progressBar.style.width = percentComplete + '%';
+                progressText.textContent = percentComplete.toFixed(2) + '%';
+              }
+            };
+
+            xhr.onload = async function() {
+              if (xhr.status === 200) {
+                const result = JSON.parse(xhr.responseText);
+                urlText.textContent = result.fileUrl;
+                urlContainer.classList.remove('hidden');
+                copyText.classList.remove('hidden');
+              } else {
+                throw new Error('Upload failed');
+              }
+            };
+
+            xhr.onerror = function() {
+              throw new Error('Upload failed');
+            };
+
+            xhr.send(formData);
+          } catch (error) {
+            alert(error);
+          } finally {
+            setTimeout(() => {
+              progressContainer.classList.add('hidden');
+            }, 2000);
+          }
+        }
+    </script>
+    <script src="https://kit.fontawesome.com/ba5ff47b3f.js" crossorigin="anonymous"></script>
+</body>
+</html>
+
